@@ -43,6 +43,9 @@ public:
 
 */
 
+//! consts to change behaivour
+const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
+const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
 
 
 // BUTTONS
@@ -50,9 +53,6 @@ public:
 const int EFFECTS_INTERRUPTOR = 37;
 const int BPM_INTERRUPTOR = 35;
 const int RED_BUTTON = 59;
-
-const int BPMVolume = 100;
-
 
 const int NButtons = 16 + 2 + 1;
 const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, RED_BUTTON };
@@ -97,8 +97,8 @@ int potCState[NPots] = { 0 };  // Current state of the pot; delete 0 if 0 pots
 int potPState[NPots] = { 0 };  // Previous state of the pot; delete 0 if 0 pots
 int potVar = 0;                // Difference between the current and previous state of the pot
 
-int midiCState[NPots] = { 0 };  // Current state of the midi value; delete 0 if 0 pots
-int midiPState[NPots] = { 0 };  // Previous state of the midi value; delete 0 if 0 pots
+int midiCState[NPots] = { 0 }; // Current state of the midi value; delete 0 if 0 pots
+int midiPState[NPots] = { 0 }; // Previous state of the midi value; delete 0 if 0 pots
 
 const int TIMEOUT = 300;             //** Amount of time the potentiometer will be read after it exceeds the varThreshold
 const int varThreshold = 10;         //** Threshold for the potentiometer signal variation
@@ -136,7 +136,7 @@ void debounceButtons() {
         lastDebounceTime[i] = millis();
 
         handleButtons(buttonPin[i], buttonCState[i]);  // creo que esto va a funcionar, pero si no seguro que el if de abajo funciona, aunque es redundante
-                                                       /*  if (buttonCState[i] == LOW) {
+    /*  if (buttonCState[i] == LOW) {
           handleButtons(i, true);
         } else {
           handleButtons(i, false); 
@@ -196,12 +196,14 @@ void handleMainButtonsWithEffectsON(int pin, uint8_t value) {
   int n = (pin - pin % 4) / 4;
   selectedEffectPerColumn[column] = n;
 
-  if (value == LOW) {
-    MIDI.sendNoteOn(column * 4 + n, 127, isPageDown+2);
-  } else {
-
-    MIDI.sendNoteOn(column * 4 + n, 0, isPageDown+2);
-  }
+  if (DO_EFFECTS_ON_BUTTONS_SEND_NOTES) {
+  // when effect is on, buttons still send notes (in another channel)
+    if (value == LOW) {
+      MIDI.sendNoteOn(column * 4 + n, 127, isPageDown+2);
+    } else {
+      MIDI.sendNoteOn(column * 4 + n, 0, isPageDown+2);
+    }
+  } // else, it doesn't do nothing
 }
 // selectedEffectPerColumn[MAX_PAGES * 4] = {0};
 
@@ -215,18 +217,18 @@ void debouncePots() {
     }
     timer[i] = millis() - PTime[i];  // Resets the timer 11000 - 11000 = 0ms
 
-    if (timer[i] < TIMEOUT) {  // If the timer is less than the maximum allowed time it means that the potentiometer is still moving
+    if (timer[i] < TIMEOUT) {        // If the timer is less than the maximum allowed time it means that the potentiometer is still moving
       potMoving = true;
     } else {
       potMoving = false;
     }
 
-    if (potMoving == true) {  // If the potentiometer is still moving, send the change control
+    if (potMoving == true) {                // If the potentiometer is still moving, send the change control
       if (midiPState[i] != midiCState[i]) {
         
         handlePots(i, 127 - midiCState[i]); // sends to handler
 
-        potPState[i] = potCState[i];  // Stores the current reading of the potentiometer to compare with the next
+        potPState[i] = potCState[i];        // Stores the current reading of the potentiometer to compare with the next
         midiPState[i] = midiCState[i];
       }
     }
@@ -235,13 +237,14 @@ void debouncePots() {
 
 
 void handlePots(int pot, int value) {
-  //Serial.println(pot);
+    //Serial.println(pot);
     //MIDI.sendControlChange(/*pot + page * NPots - */1, value, isPageDown);
           // cc number, cc value, midi channel
   if (pot == NPots - 1) {
     /* so this is a mess, but it has to be NPots -1 and not BPM_POT
-    because this function is being passed i, instead of potPin[i],
-    because potPin[0] = A0, wich cannot be passed to sendControlChange */ 
+    because this function is being passed i, instead of potPin[i]
+    (the array which holds the analog pin directions),
+    because potPin[0] = A0, wich cannot be passed to sendControlChange because A0 isn't an int */ 
     MIDI.sendControlChange(127, value, 1);
   } else {
     if (isEffectsOn == LOW) {
@@ -257,8 +260,15 @@ void handlePotsWithEffectsOn(int pot, int value) {
   int column = pot + page * 4;
   int effect = selectedEffectPerColumn[column];
 
-  MIDI.sendControlChange(column*4 + effect, value, 3);
+  if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
+    // for 4 effect knobs per page
+    MIDI.sendControlChange(column*4 + effect, value, 3);
+  } else {
+    // for 4 effect knobs in general, to assign to all pages
+    MIDI.sendControlChange(pot, value, 3);               
+  }
 }
+
 
 
 
