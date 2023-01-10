@@ -1,0 +1,28 @@
+[33mcommit 3839d55112464fa2d4343240d2bec04c0f1839e4[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: martin gutman <gutmanmartin@gmail.com>
+Date:   Tue Jan 10 20:23:33 2023 -0300
+
+    added const to change behaivour
+    
+    there are 2 new constants: one to play notes when effects are on, and one to tie effect knobs to the page numbers. they can be activated or deactivated from de code. Testing and fixing will ensue
+
+[33mcommit bc4bc71b3a7f9214d7cc55967eac2e9679f51dce[m
+Author: martin gutman <gutmanmartin@gmail.com>
+Date:   Tue Jan 10 14:39:19 2023 -0300
+
+    adde
+
+[33mcommit 177e44c5c7a6dcd83d9158d05d9f57eaddc49d36[m
+Author: martin gutman <gutmanmartin@gmail.com>
+Date:   Tue Jan 10 14:36:33 2023 -0300
+
+    added readme.md
+
+[33mcommit 26ed9a9a89bfcfc973028209b3b571318bb30e49[m
+Author: martin gutman <gutmanmartin@gmail.com>
+Date:   Tue Jan 10 14:22:59 2023 -0300
+
+    q
+    First commit.
+    The program is fully functiona, althought it could use some trimming.
+    Full documentation of features and behaviour of different modes should ensue
