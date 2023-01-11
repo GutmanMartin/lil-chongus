@@ -44,8 +44,8 @@ public:
 */
 
 //! consts to change behaivour
-const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = true;
-const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = true;
+const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
+const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
 
 
 // BUTTONS
@@ -62,7 +62,7 @@ int buttonPState[NButtons] = {};  // stores the button previous value
 
 // debounce
 unsigned long lastDebounceTime[NButtons] = { 0 };  // the last time the output pin was toggled
-unsigned long debounceDelay = 50;                  // the debounce time; increase if the output flickers
+unsigned long debounceDelay = 50;                  //* the debounce time; increase if the output flickers
 
 
 // pages
@@ -257,15 +257,15 @@ void handlePots(int pot, int value) {
 
 
 void handlePotsWithEffectsOn(int pot, int value) {
-  int column = pot * 4;
+  int column = pot + page * 4;
   int effect = selectedEffectPerColumn[column];
 
   if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
     // for 4 effect knobs per page
-    MIDI.sendControlChange((column + page) *4 + effect, value, 3);
+    MIDI.sendControlChange(column*4 + effect, value, 3);
   } else {
     // for 4 effect knobs in general, to assign to all pages
-    MIDI.sendControlChange(column + effect, value, 3);               
+    MIDI.sendControlChange(pot*4 + effect, value, 3);               
   }
 }
 
