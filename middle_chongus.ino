@@ -34,12 +34,14 @@ public:
 
   pines:
     botones principales: 2 - 17
-    pageLeft: 43
-    pageDown: 41
-    pageRight: 39
-    effects: 37
-    bpmmonitor: 35
+    pageLeft: 41
+    pageDown: 49
+    pageRight: 37
+    effects: 35
+    bpmmonitor: 33
     red one: 59
+
+    led: 29
 
 */
 
@@ -50,8 +52,9 @@ const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
 
 // BUTTONS
 
-const int EFFECTS_INTERRUPTOR = 37;
-const int BPM_INTERRUPTOR = 35;
+const int EFFECTS_INTERRUPTOR = 35;
+const int BPM_INTERRUPTOR = 33;
+const int OTHER_LEVER = 31;
 const int RED_BUTTON = 59;
 
 const int NButtons = 16 + 2 + 1;
@@ -108,14 +111,16 @@ unsigned long timer[NPots] = { 0 };  // Stores the time that has elapsed since t
 
 
 
+
+
 void setup() {
   Serial.begin(115200);  //**  Baud Rate 31250 for MIDI class compliant jack | 115200 for Hairless MIDI
   for (int i = 0; i < NButtons; i++) {
     pinMode(buttonPin[i], INPUT_PULLUP);
   }
-  pageLeft.begin(43);
-  pageDown.begin(41);
-  pageRight.begin(39);
+  pageLeft.begin(41);
+  pageDown.begin(39);
+  pageRight.begin(37);
 }
 
 void loop() {
