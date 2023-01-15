@@ -57,8 +57,8 @@ const int BPM_INTERRUPTOR = 33;
 const int OTHER_LEVER = 31;
 const int RED_BUTTON = 59;
 
-const int NButtons = 16 + 2 + 1;
-const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, RED_BUTTON };
+const int NButtons = 16 + 3 + 1;
+const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, OTHER_LEVER, RED_BUTTON };
 
 int buttonCState[NButtons] = {};  // stores the button current value
 int buttonPState[NButtons] = {};  // stores the button previous value
@@ -174,6 +174,13 @@ void handleButtons(int pin, uint8_t value) {
         MIDI.sendNoteOn(0, 127, 16);
       } else {
         MIDI.sendNoteOn(0, 0, 16);
+      }
+      break;
+    case OTHER_LEVER:
+      if (value == LOW) {
+        MIDI.sendControlChange(125, 127, 1);
+      } else {
+        MIDI.sendControlChange(125, 0, 1);
       }
       break;
     case BPM_INTERRUPTOR:
