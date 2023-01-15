@@ -111,7 +111,11 @@ unsigned long timer[NPots] = { 0 };  // Stores the time that has elapsed since t
 
 
 
-
+// LED
+const int LED = 29;
+long ledDelay = 0;
+const int SHORT_LED_DURATION = 50;
+const int LONG_LED_DURATION = 150;
 
 void setup() {
   Serial.begin(115200);  //**  Baud Rate 31250 for MIDI class compliant jack | 115200 for Hairless MIDI
@@ -121,14 +125,19 @@ void setup() {
   pageLeft.begin(41);
   pageDown.begin(39);
   pageRight.begin(37);
+
+  longLed();
 }
 
 void loop() {
-
-
   debouncePots();
   debounceButtons();
   pages();
+
+  if (ledDelay < millis()) {
+    // turns down the led
+    digitalWrite(LED, LOW);
+  }
 }
 
 
@@ -189,6 +198,7 @@ void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
   if (value == LOW) {
     MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
     // note, velocity, channel
+    shortLed();
   } else {
     MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown);
   }
@@ -196,6 +206,7 @@ void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
 
 
 void handleMainButtonsWithEffectsON(int pin, uint8_t value) {
+  shortLed();
   pin = pin - 2;
   int column = pin % 4 + page * 4;
   int n = (pin - pin % 4) / 4;
@@ -242,6 +253,7 @@ void debouncePots() {
 
 
 void handlePots(int pot, int value) {
+  shortLed();
     //Serial.println(pot);
     //MIDI.sendControlChange(/*pot + page * NPots - */1, value, isPageDown);
           // cc number, cc value, midi channel
@@ -284,14 +296,37 @@ void pages() {
   if (pageLeft.debounce()) {
     page = max(page - 1, 0);
     isPageDown = 1;
+    if (page == 0){
+      longLed();
+    } else {
+      shortLed();
+    }
   }
   if (pageRight.debounce()) {
     
     page = min(page + 1, MAX_PAGES - 1);
     isPageDown = 1;
+    if (page == 16){
+      longLed();
+    } else {
+      shortLed();
+    }
   }
   if (pageDown.debounce()) {
     isPageDown %= 2;
     isPageDown++;
+    shortLed();
   }
+}
+
+void shortLed() {
+  ledDelay = millis() + SHORT_LED_DURATION;
+  digitalWrite(LED, HIGH);
+  // logic for turning the led off is in the loop function
+}
+
+void longLed() {
+  ledDelay = millis() + LONG_LED_DURATION;
+  digitalWrite(LED, HIGH);
+  // logic for turning the led off is in the loop function
 }
