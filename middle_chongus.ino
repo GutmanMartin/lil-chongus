@@ -301,22 +301,27 @@ void handlePotsWithEffectsOn(int pot, int value) {
 
 void pages() {
   if (pageLeft.debounce()) {
-    page = max(page - 1, 0);
-    isPageDown = 1;
-    if (page == 0){
-      longLed();
-    } else {
-      shortLed();
+    if (page != 0){
+      page--;
+      isPageDown = 1;
+      if (page == 0){
+        longLed();
+      } else {
+        shortLed();
+      }
     }
   }
+
   if (pageRight.debounce()) {
     
-    page = min(page + 1, MAX_PAGES - 1);
-    isPageDown = 1;
-    if (page == 16){
-      longLed();
-    } else {
-      shortLed();
+     if (page != 15){
+      page++;
+      isPageDown = 1;
+      if (page == 15){
+        longLed();
+      } else {
+        shortLed();
+      }
     }
   }
   if (pageDown.debounce()) {
