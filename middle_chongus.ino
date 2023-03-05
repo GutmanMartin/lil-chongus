@@ -1,5 +1,8 @@
 #include <MIDI.h>  // by Francois Best
+#include <arduino-timer.h>
+
 //#include <Debounce.h>
+auto timer = timer_create_default();
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 class Button {
@@ -54,11 +57,11 @@ const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
 
 const int EFFECTS_INTERRUPTOR = 35;
 const int BPM_INTERRUPTOR = 33;
-const int OTHER_LEVER = 31;
+const int DELAYED_NOTE = 31;
 const int RED_BUTTON = 59;
 
 const int NButtons = 16 + 3 + 1;
-const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, OTHER_LEVER, RED_BUTTON };
+const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, DELAYED_NOTE, RED_BUTTON };
 
 int buttonCState[NButtons] = {};  // stores the button current value
 int buttonPState[NButtons] = {};  // stores the button previous value
@@ -176,12 +179,12 @@ void handleButtons(int pin, uint8_t value) {
         MIDI.sendNoteOn(0, 0, 16);
       }
       break;
-    case OTHER_LEVER:
-      if (value == LOW) {
+    case DELAYED_NOTE:
+      /*if (value == LOW) {
         MIDI.sendControlChange(125, 127, 1);
       } else {
         MIDI.sendControlChange(125, 0, 1);
-      }
+      }*/
       break;
     case BPM_INTERRUPTOR:
       if (value == LOW) {
