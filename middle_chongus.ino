@@ -52,6 +52,7 @@ public:
 //! consts to change behaivour
 const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
 const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
+const int DELAY_TIME_IN_QUARTER_NOTES = 8;
 
 
 // BUTTONS
@@ -103,7 +104,7 @@ const int potPin[NPots] = {A0, A1, A2, A3, BPM_POT};  //*** Analog pins of each 
 
 // DELAYED NOTES (BPM)
 const int MIN_DELAY = 20;
-const int MAX_DELAY = 20;
+const int MAX_DELAY = 200;
 int valueOfBpmPot = 0;
 
 
@@ -220,27 +221,31 @@ void handleButtons(int pin, uint8_t value) {
 void handleDelayedNotes(int pin, uint8_t value) {
   if(isDelayedNotesON){
     if (value == LOW) {
-      timer.in(1000, sendDelayedNoteON, (pin - 2 + page * 16));
+      timer.in(bpmHertz(), sendDelayedNoteON, pin);
       
     } else {
-      timer.in(1000, sendDelayedNoteOFF, (pin - 2 + page * 16));
+      timer.in(bpmHertz(), sendDelayedNoteOFF, pin);
       //timer.in(1000, MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown));
     }
   }
 }
 
-int bpm() {
-  return map(valueOfBpmPot, 0, 127, MIN_DELAY, MAX_DELAY);
+int bpmHertz() {
+  //int bpm = floor(valueOfBpmPot *180/127 + 20);
+  int bpm = floor(map(valueOfBpmPot, 0, 127, 20, 180));
+  int beatTime = 60 / bpm;
+  
+  return beatTime * 1000;
 }
 
 void sendDelayedNoteON(int pin){
   // called by timer.in()
-  MIDI.sendNoteOn(pin + page * 16, 127, isPageDown);
+  MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
 
 }
 void sendDelayedNoteOFF(int pin){
   // called by timer.in()
-  MIDI.sendNoteOn(pin + page * 16, 0, isPageDown);
+  MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown);
 
 }
 
