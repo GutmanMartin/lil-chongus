@@ -87,7 +87,8 @@ int isPageDown = 1;
 
 // EFFECTS
 //int selectedEffects[MAX_PAGES * NPots - 1];
-bool isEffectsOn = false;
+bool isEffectsON = false;
+bool isDelayedNotesON = false;
 int selectedEffectPerColumn[MAX_PAGES * 4] = {0};
 
 
@@ -99,6 +100,13 @@ const int BPM_POT = A4;
 const int NPots = 5;                               //*** total numbers of pots (slide & rotary)
 const int potPin[NPots] = {A0, A1, A2, A3, BPM_POT};  //*** Analog pins of each pot connected straight to the Arduino i.e 4 pots, {A3, A2, A1, A0};
                                                    // have nothing in the array if 0 pots {}
+
+// DELAYED NOTES (BPM)
+const int MIN_DELAY = 20;
+const int MAX_DELAY = 20;
+int valueOfBpmPot = 0;
+
+
 
 int potCState[NPots] = { 0 };  // Current state of the pot; delete 0 if 0 pots
 int potPState[NPots] = { 0 };  // Previous state of the pot; delete 0 if 0 pots
@@ -173,7 +181,7 @@ void handleButtons(int pin, uint8_t value) {
 
   switch (pin) {
     case EFFECTS_INTERRUPTOR:
-      isEffectsOn = !isEffectsOn;
+      isEffectsON = !isEffectsON;
     break;
     case RED_BUTTON:
       if (value == LOW) {
@@ -183,11 +191,11 @@ void handleButtons(int pin, uint8_t value) {
       }
       break;
     case DELAYED_NOTE:
-      /*if (value == LOW) {
-        MIDI.sendControlChange(125, 127, 1);
+      if (value == LOW) {
+        isDelayedNotesON = false;
       } else {
-        MIDI.sendControlChange(125, 0, 1);
-      }*/
+        isDelayedNotesON = true;
+      }
       break;
     case BPM_INTERRUPTOR:
       if (value == LOW) {
@@ -197,7 +205,7 @@ void handleButtons(int pin, uint8_t value) {
       }
       break;
     default:
-      if (isEffectsOn) {
+      if (isEffectsON) {
         handleMainButtonsWithEffectsON(pin, value);
       } else {
         handleMainButtonsWithEffectsOFF(pin, value);
@@ -210,23 +218,29 @@ void handleButtons(int pin, uint8_t value) {
 
 
 void handleDelayedNotes(int pin, uint8_t value) {
-  if (value == LOW) {
-    timer.in(1000, sendDelayedNoteON, (pin - 2 + page * 16));
-    
-  } else {
-    timer.in(1000, sendDelayedNoteOFF, (pin - 2 + page * 16));
-    //timer.in(1000, MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown));
+  if(isDelayedNotesON){
+    if (value == LOW) {
+      timer.in(1000, sendDelayedNoteON, (pin - 2 + page * 16));
+      
+    } else {
+      timer.in(1000, sendDelayedNoteOFF, (pin - 2 + page * 16));
+      //timer.in(1000, MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown));
+    }
   }
+}
+
+int bpm() {
+  return map(valueOfBpmPot, 0, 127, MIN_DELAY, MAX_DELAY);
 }
 
 void sendDelayedNoteON(int pin){
   // called by timer.in()
-  MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
+  MIDI.sendNoteOn(pin + page * 16, 127, isPageDown);
 
 }
 void sendDelayedNoteOFF(int pin){
   // called by timer.in()
-  MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown);
+  MIDI.sendNoteOn(pin + page * 16, 0, isPageDown);
 
 }
 
@@ -295,13 +309,16 @@ void handlePots(int pot, int value) {
     //MIDI.sendControlChange(/*pot + page * NPots - */1, value, isPageDown);
           // cc number, cc value, midi channel
   if (pot == NPots - 1) {
+    //BPM POT
     /* so this is a mess, but it has to be NPots -1 and not BPM_POT
     because this function is being passed i, instead of potPin[i]
     (the array which holds the analog pin directions),
     because potPin[0] = A0, wich cannot be passed to sendControlChange because A0 isn't an int */ 
+    valueOfBpmPot = value;
     MIDI.sendControlChange(127, value, 1);
+
   } else {
-    if (isEffectsOn == LOW) {
+    if (isEffectsON == LOW) {
       MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
     } else {
       handlePotsWithEffectsOn(pot, value);
