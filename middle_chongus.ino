@@ -3,6 +3,7 @@
 
 //#include <Debounce.h>
 auto timer = timer_create_default();
+
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 class Button {
@@ -110,7 +111,7 @@ const int TIMEOUT = 300;             //** Amount of time the potentiometer will 
 const int varThreshold = 10;         //** Threshold for the potentiometer signal variation
 boolean potMoving = true;            // If the potentiometer is moving
 unsigned long PTime[NPots] = { 0 };  // Previously stored time; delete 0 if 0 pots
-unsigned long timer[NPots] = { 0 };  // Stores the time that has elapsed since the timer was reset; delete 0 if 0 pots
+unsigned long PTimer[NPots] = { 0 };  // Stores the time that has elapsed since the PTimer was reset; delete 0 if 0 pots
 
 
 
@@ -133,6 +134,8 @@ void setup() {
 }
 
 void loop() {
+  timer.tick();
+
   debouncePots();
   debounceButtons();
   pages();
@@ -198,8 +201,32 @@ void handleButtons(int pin, uint8_t value) {
         handleMainButtonsWithEffectsON(pin, value);
       } else {
         handleMainButtonsWithEffectsOFF(pin, value);
+        handleDelayedNotes(pin, value);
       }
   }
+
+}
+
+
+
+void handleDelayedNotes(int pin, uint8_t value) {
+  if (value == LOW) {
+    timer.in(1000, sendDelayedNoteON, (pin - 2 + page * 16));
+    
+  } else {
+    timer.in(1000, sendDelayedNoteOFF, (pin - 2 + page * 16));
+    //timer.in(1000, MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown));
+  }
+}
+
+void sendDelayedNoteON(int pin){
+  // called by timer.in()
+  MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
+
+}
+void sendDelayedNoteOFF(int pin){
+  // called by timer.in()
+  MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown);
 
 }
 
@@ -241,9 +268,9 @@ void debouncePots() {
     if (potVar > varThreshold) {                         // Opens the gate if the potentiometer variation is greater than the threshold
       PTime[i] = millis();                               // Stores the previous time
     }
-    timer[i] = millis() - PTime[i];  // Resets the timer 11000 - 11000 = 0ms
+    PTimer[i] = millis() - PTime[i];  // Resets the PTimer 11000 - 11000 = 0ms
 
-    if (timer[i] < TIMEOUT) {        // If the timer is less than the maximum allowed time it means that the potentiometer is still moving
+    if (PTimer[i] < TIMEOUT) {        // If the PTimer is less than the maximum allowed time it means that the potentiometer is still moving
       potMoving = true;
     } else {
       potMoving = false;
