@@ -31,6 +31,7 @@ public:
     pots van por 1
   channels 3 y 4: modo efectos
     pots van por 3
+  channel 5: modo samplera
 
   pines:
     botones principales: 2 - 17
@@ -117,6 +118,12 @@ long ledDelay = 0;
 const int SHORT_LED_DURATION = 50;
 const int LONG_LED_DURATION = 150;
 
+// SAMPLES
+
+Button samplers[16];
+
+
+
 void setup() {
   Serial.begin(115200);  //**  Baud Rate 31250 for MIDI class compliant jack | 115200 for Hairless MIDI
   for (int i = 0; i < NButtons; i++) {
@@ -126,12 +133,23 @@ void setup() {
   pageDown.begin(39);
   pageRight.begin(37);
 
+  for (int i = 0; i > 16; i++;){
+    // initializes samplers objects
+    samplers[i].begin(buttonPin[i]);
+  }
+
   longLed();
 }
 
 void loop() {
   debouncePots();
-  debounceButtons();
+  if (isSampleraOn){
+    // they dont have a note off
+    handleSamplera();
+  } else {
+    // debounceButtons are for clips, they are debounced in other way to account for noteOff
+    debounceButtons();
+  }
   pages();
 
   if (ledDelay < millis()) {
@@ -161,6 +179,8 @@ void debounceButtons() {
   }
 }
 
+bool isSampleraOn = false;
+
 
 void handleButtons(int pin, uint8_t value) {
   //Serial.println(pin);
@@ -179,8 +199,11 @@ void handleButtons(int pin, uint8_t value) {
     case OTHER_LEVER:
       if (value == LOW) {
         MIDI.sendControlChange(125, 127, 1);
+        isSampleraOn = true;
+
       } else {
         MIDI.sendControlChange(125, 0, 1);
+        isSampleraOn = false;
       }
       break;
     case BPM_INTERRUPTOR:
@@ -199,6 +222,8 @@ void handleButtons(int pin, uint8_t value) {
   }
 
 }
+
+
 
 
 void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
@@ -271,10 +296,14 @@ void handlePots(int pot, int value) {
     because potPin[0] = A0, wich cannot be passed to sendControlChange because A0 isn't an int */ 
     MIDI.sendControlChange(127, value, 1);
   } else {
-    if (isEffectsOn == LOW) {
-      MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
+    if (isSampleraOn) {
+      MIDI.sendControlChange(pot, value, 5);
     } else {
-      handlePotsWithEffectsOn(pot, value);
+      if (isEffectsOn == LOW) {
+        MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
+      } else {
+        handlePotsWithEffectsOn(pot, value);
+      }
     }
   }
 }
@@ -311,7 +340,6 @@ void pages() {
       }
     }
   }
-
   if (pageRight.debounce()) {
     
      if (page != 15){
@@ -330,6 +358,21 @@ void pages() {
     shortLed();
   }
 }
+
+
+void handleSamplera() {
+  if (isSampleraOn) {
+    for (int i = 0; i < 16; i++;){
+      if (samplers[i].debounce()){
+        shortLed();
+        MIDI.sendNoteOn(pin - 2, 127, 5);
+        MIDI.sendNoteOn(pin - 2, 0, 5);
+      }
+    }
+  }
+}
+
+
 
 void shortLed() {
   ledDelay = millis() + SHORT_LED_DURATION;
