@@ -86,6 +86,7 @@ int isPageDown = 1;
 //int selectedEffects[MAX_PAGES * NPots - 1];
 bool isEffectsOn = false;
 int selectedEffectPerColumn[MAX_PAGES * 4] = {0};
+bool isSampleraOn = false;
 
 
 
@@ -133,7 +134,7 @@ void setup() {
   pageDown.begin(39);
   pageRight.begin(37);
 
-  for (int i = 0; i > 16; i++;){
+  for (int i = 0; i > 16; i++) {
     // initializes samplers objects
     samplers[i].begin(buttonPin[i]);
   }
@@ -179,7 +180,6 @@ void debounceButtons() {
   }
 }
 
-bool isSampleraOn = false;
 
 
 void handleButtons(int pin, uint8_t value) {
@@ -362,11 +362,11 @@ void pages() {
 
 void handleSamplera() {
   if (isSampleraOn) {
-    for (int i = 0; i < 16; i++;){
+    for (int i = 0; i < 16; i++){
       if (samplers[i].debounce()){
         shortLed();
-        MIDI.sendNoteOn(pin - 2, 127, 5);
-        MIDI.sendNoteOn(pin - 2, 0, 5);
+        MIDI.sendNoteOn(buttonPin[i] - 2, 127, 5);
+        MIDI.sendNoteOn(buttonPin[i] - 2, 0, 5);
       }
     }
   }
