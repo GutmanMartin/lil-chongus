@@ -65,7 +65,7 @@ int buttonPState[NButtons] = {};  // stores the button previous value
 
 // debounce
 unsigned long lastDebounceTime[NButtons] = { 0 };  // the last time the output pin was toggled
-unsigned long debounceDelay = 50;                  //* the debounce time; increase if the output flickers
+unsigned long debounceDelay = 5;                  //* the debounce time; increase if the output flickers
 
 
 // pages
@@ -85,7 +85,7 @@ int isPageDown = 1;
 //int selectedEffects[MAX_PAGES * NPots - 1];
 bool isEffectsOn = false;
 int selectedEffectPerColumn[MAX_PAGES * 4] = {0};
-
+bool areDrumsOn = false;
 
 
 
@@ -149,12 +149,7 @@ void debounceButtons() {
       if (buttonPState[i] != buttonCState[i]) {
         lastDebounceTime[i] = millis();
 
-        handleButtons(buttonPin[i], buttonCState[i]);  // creo que esto va a funcionar, pero si no seguro que el if de abajo funciona, aunque es redundante
-    /*  if (buttonCState[i] == LOW) {
-          handleButtons(i, true);
-        } else {
-          handleButtons(i, false); 
-        }*/
+        handleButtons(buttonPin[i], buttonCState[i]);
         buttonPState[i] = buttonCState[i];
       }
     }
@@ -163,8 +158,6 @@ void debounceButtons() {
 
 
 void handleButtons(int pin, uint8_t value) {
-  //Serial.println(pin);
-
   switch (pin) {
     case EFFECTS_INTERRUPTOR:
       isEffectsOn = !isEffectsOn;
@@ -177,6 +170,7 @@ void handleButtons(int pin, uint8_t value) {
       }
       break;
     case OTHER_LEVER:
+      areDrumsOn = !areDrumsOn;
       if (value == LOW) {
         MIDI.sendControlChange(125, 127, 1);
       } else {
@@ -194,7 +188,11 @@ void handleButtons(int pin, uint8_t value) {
       if (isEffectsOn) {
         handleMainButtonsWithEffectsON(pin, value);
       } else {
-        handleMainButtonsWithEffectsOFF(pin, value);
+        if (areDrumsOn) {
+          handleMainButtonsWithDrums(pin, value);
+        } else {
+          handleMainButtonsWithEffectsOFF(pin, value);
+        }
       }
   }
 
@@ -202,12 +200,23 @@ void handleButtons(int pin, uint8_t value) {
 
 
 void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
+  // some random stuff so that ableton's default keybindings for drums work
   if (value == LOW) {
     MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
     // note, velocity, channel
     shortLed();
   } else {
     MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown);
+  }
+}
+
+void handleMainButtonsWithDrums(int pin, uint8_t value) {
+  if (value == LOW) {
+    MIDI.sendNoteOn(pin - 2 + 36, 127, 5);
+    // note, velocity, channel
+    shortLed();
+  } else {
+    MIDI.sendNoteOn(pin - 2 + 36, 0, 5);
   }
 }
 
@@ -272,7 +281,11 @@ void handlePots(int pot, int value) {
     MIDI.sendControlChange(127, value, 1);
   } else {
     if (isEffectsOn == LOW) {
-      MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
+      if (areDrumsOn) {
+        MIDI.sendControlChange(pot, value, 5);
+      } else {
+        MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
+      }
     } else {
       handlePotsWithEffectsOn(pot, value);
     }
