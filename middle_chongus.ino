@@ -63,7 +63,7 @@ const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 int buttonCState[NButtons] = {};  // stores the button current value
 int buttonPState[NButtons] = {};  // stores the button previous value
 
-int redButtonParams[3] = [0,0,0];
+int redButtonParams[3] = {0,0,0};
 
 // debounce
 unsigned long lastDebounceTime[NButtons] = { 0 };  // the last time the output pin was toggled
@@ -198,7 +198,7 @@ void handleButtons(int pin, uint8_t value) {
 
 
 void handleRedButton(uint8_t value) {
-  if (redButtonParams == [0,0,0]) {
+  if (redButtonParams == {0,0,0}) {
 
     if (value == LOW) {
       MIDI.sendNoteOn(0, 127, 16);
@@ -210,7 +210,7 @@ void handleRedButton(uint8_t value) {
       MIDI.sendNoteOn(redButtonParams[0], 127, redButtonParams[2]);
     } else {
       MIDI.sendNoteOn(redButtonParams[0], 0, redButtonParams[2]);
-      redButtonParams = [0,0,0];
+      redButtonParams = {0,0,0};
     }
   }
 }
@@ -220,7 +220,7 @@ void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
   // some random stuff so that ableton's default keybindings for drums work
   if (value == LOW) {
     MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
-    redButtonParams = [pin - 2 + page * 16, 127, isPageDown];
+    redButtonParams = {pin - 2 + page * 16, 127, isPageDown};
     // note, velocity, channel
     shortLed();
   } else {
