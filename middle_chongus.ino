@@ -40,6 +40,7 @@ public:
     effects: 35
     bpmmonitor: 33
     red one: 59
+    pdealcito: A6
 
     led: 29
 
@@ -56,15 +57,17 @@ const int EFFECTS_INTERRUPTOR = 35;
 const int BPM_INTERRUPTOR = 33;
 const int OTHER_LEVER = 31;
 const int RED_BUTTON = 59;
+const int PEDAL = A6;
 
-const int NButtons = 16 + 3 + 1;
-const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, OTHER_LEVER, RED_BUTTON };
+const int NButtons = 16 + 3 + 1 + 1;
+const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, OTHER_LEVER, RED_BUTTON, PEDAL};
 
 int buttonCState[NButtons] = {};  // stores the button current value
 int buttonPState[NButtons] = {};  // stores the button previous value
 
-int redButtonNote = -1;
-int redButtonChannel = -1;
+int redButtonNote = 0;
+int redButtonChannel = 1;
+bool isRedButtonActive = false;
 
 // debounce
 unsigned long lastDebounceTime[NButtons] = { 0 };  // the last time the output pin was toggled
@@ -168,6 +171,9 @@ void handleButtons(int pin, uint8_t value) {
     case RED_BUTTON:
       handleRedButton(value);
     break;
+    case PEDAL:
+      handlePedal(value);
+    break;
     case OTHER_LEVER:
       areDrumsOn = !areDrumsOn;
       if (value == LOW) {
@@ -199,7 +205,7 @@ void handleButtons(int pin, uint8_t value) {
 
 
 void handleRedButton(uint8_t value) {
-  if (redButtonChannel == -1) {
+  if (isRedButtonActive == false) {
 
     if (value == LOW) {
       MIDI.sendNoteOn(0, 127, 16);
@@ -211,9 +217,25 @@ void handleRedButton(uint8_t value) {
       MIDI.sendNoteOn(redButtonNote, 127, redButtonChannel);
     } else {
       MIDI.sendNoteOn(redButtonNote, 0, redButtonChannel);
-      redButtonChannel = -1;
-      redButtonNote = -1;
+      isRedButtonActive = false;
     }
+  }
+}
+
+void handlePedal(uint8_t value) {
+  if (areDrumsOn){
+    if (value == LOW) {
+      MIDI.sendNoteOn(1, 127, 16);
+    } else {
+      MIDI.sendNoteOn(1, 0, 16);
+    }
+  } else {
+    if (value == LOW) {
+      MIDI.sendNoteOn(redButtonNote, 127, redButtonChannel);
+    } else {
+      MIDI.sendNoteOn(redButtonNote, 0, redButtonChannel);
+    }
+
   }
 }
 
@@ -223,6 +245,7 @@ void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
   if (value == LOW) {
     MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
     redButtonChannel = isPageDown;
+    isRedButtonActive = true;
     redButtonNote = pin - 2 + page * 16;
 
     // note, velocity, channel
