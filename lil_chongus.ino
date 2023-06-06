@@ -5,22 +5,22 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 class Button {
 private:
   uint8_t btn;
-  uint16_t state;
+  uint16_t globalState;
 public:
   void begin(uint8_t button) {
     btn = button;
-    state = 0;
+    globalState = 0;
     pinMode(btn, INPUT_PULLUP);
   }
   bool debounce() {
-    state = (state << 1) | digitalRead(btn) | 0xfe00;
-    return (state == 0xff00);
+    globalState = (globalState << 1) | digitalRead(btn) | 0xfe00;
+    return (globalState == 0xff00);
   }
 };
 
 //! right now, isEffectsOn and areDrumsOn depend on having all interruptors up at the start of the program
 //? which, obviously, makes it incosnsistent
-//? should be able to eliminate the variables and use only the state of the pins, but I'm to lazy to do it now
+//? should be able to eliminate the variables and use only the globalState of the pins, but I'm to lazy to do it now
 
 
 /*
@@ -54,13 +54,14 @@ public:
 
 */
 
-enum globalState {
+enum GlobalState {
   ClipLaunch,
   ClipEffects,
   Drums,
   Groups,
 };
 
+GlobalState globalState;
 
 //! consts to change behaivour
 const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
@@ -80,8 +81,8 @@ const int PEDAL = A6;
 const int NButtons = 16 + 3 + 1 + 1;
 const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, DRUMS_INTERRUPTOR, RED_BUTTON, PEDAL};
 
-int buttonCState[NButtons] = {};  // stores the button current value
-int buttonPState[NButtons] = {};  // stores the button previous value
+int buttonCglobalState[NButtons] = {};  // stores the button current value
+int buttonPglobalState[NButtons] = {};  // stores the button previous value
 
 int redButtonNote = 0;
 int redButtonChannel = 1;
@@ -121,12 +122,12 @@ const int NPots = 5;                               //*** total numbers of pots (
 const int potPin[NPots] = {A0, A1, A2, A3, BPM_POT};  //*** Analog pins of each pot connected straight to the Arduino i.e 4 pots, {A3, A2, A1, A0};
                                                    // have nothing in the array if 0 pots {}
 
-int potCState[NPots] = { 0 };  // Current state of the pot; delete 0 if 0 pots
-int potPState[NPots] = { 0 };  // Previous state of the pot; delete 0 if 0 pots
-int potVar = 0;                // Difference between the current and previous state of the pot
+int potCglobalState[NPots] = { 0 };  // Current globalState of the pot; delete 0 if 0 pots
+int potPglobalState[NPots] = { 0 };  // Previous globalState of the pot; delete 0 if 0 pots
+int potVar = 0;                // Difference between the current and previous globalState of the pot
 
-int midiCState[NPots] = { 0 }; // Current state of the midi value; delete 0 if 0 pots
-int midiPState[NPots] = { 0 }; // Previous state of the midi value; delete 0 if 0 pots
+int midiCglobalState[NPots] = { 0 }; // Current globalState of the midi value; delete 0 if 0 pots
+int midiPglobalState[NPots] = { 0 }; // Previous globalState of the midi value; delete 0 if 0 pots
 
 const int TIMEOUT = 300;             //** Amount of time the potentiometer will be read after it exceeds the varThreshold
 const int varThreshold = 10;         //** Threshold for the potentiometer signal variation
@@ -166,18 +167,18 @@ void loop() {
 }
 
 // EFFECTS_INTERRUPTOR, DRUMS_INTERRUPTOR
-void updateState() {
+void updateglobalState() {
   if (digitalRead(EFFECTS_INTERRUPTOR)) {
     if (digitalRead(DRUMS_INTERRUPTOR)) {
-      globalState = Groups;
+      globalState == Groups;
     } else {
-      globalState = ClipEffects;
+      globalState == ClipEffects;
     }
   } else {
     if (digitalRead(DRUMS_INTERRUPTOR)) {
-      globalState = Drums;
+      globalState == Drums;
     } else {
-      globalState = ClipLaunch;
+      globalState == ClipLaunch;
     }
   }
 }
@@ -186,13 +187,13 @@ void updateState() {
 void debounceButtons() {
   //Serial.println("debounce buttons called");
   for (int i = 0; i < NButtons; i++) {
-    buttonCState[i] = digitalRead(buttonPin[i]);  // read pins from arduino
+    buttonCglobalState[i] = digitalRead(buttonPin[i]);  // read pins from arduino
     if ((millis() - lastDebounceTime[i]) > debounceDelay) {
-      if (buttonPState[i] != buttonCState[i]) {
+      if (buttonPglobalState[i] != buttonCglobalState[i]) {
         lastDebounceTime[i] = millis();
 
-        handleButtons(buttonPin[i], buttonCState[i]);
-        buttonPState[i] = buttonCState[i];
+        handleButtons(buttonPin[i], buttonCglobalState[i]);
+        buttonPglobalState[i] = buttonCglobalState[i];
       }
     }
   }
@@ -226,6 +227,7 @@ void handleButtons(int pin, uint8_t value) {
       }
       break;
     default:
+    
       switch (globalState) {
         case Drums:
           handleMainButtonsWithDrumsOn(pin, value);
@@ -249,7 +251,7 @@ void handleButtons(int pin, uint8_t value) {
         }
       } else {
         if (areDrumsOn) {
-          handleMainButtonsWithDrums(pin, value);
+          handleMainButtonsWithDrumsOn(pin, value);
         } else {
           handleMainButtonsWithLaunchOn(pin, value);
         }
@@ -313,7 +315,7 @@ void handleMainButtonsWithLaunchOn(int pin, uint8_t value) {
   }
 }
 
-void handleMainButtonsWithDrums(int pin, uint8_t value) {
+void handleMainButtonsWithDrumsOn(int pin, uint8_t value) {
   if (value == LOW) {
     MIDI.sendNoteOn(pin - 2 + 36, 127, 5);
     // note, velocity, channel
@@ -370,9 +372,9 @@ void handleMainButtonsWithGroupsOn(int pin, uint8_t value) {
 
 void debouncePots() {
   for (int i = 0; i < NPots; i++) {                      // Loops through all the potentiometers
-    potCState[i] = analogRead(potPin[i]);                // reads the pins from arduino
-    midiCState[i] = map(potCState[i], 0, 1023, 0, 127);  // Maps the reading of the potCState to a value usable in midi
-    potVar = abs(potCState[i] - potPState[i]);           // Calculates the absolute value between the difference between the current and previous state of the pot
+    potCglobalState[i] = analogRead(potPin[i]);                // reads the pins from arduino
+    midiCglobalState[i] = map(potCglobalState[i], 0, 1023, 0, 127);  // Maps the reading of the potCglobalState to a value usable in midi
+    potVar = abs(potCglobalState[i] - potPglobalState[i]);           // Calculates the absolute value between the difference between the current and previous globalState of the pot
     if (potVar > varThreshold) {                         // Opens the gate if the potentiometer variation is greater than the threshold
       PTime[i] = millis();                               // Stores the previous time
     }
@@ -385,12 +387,12 @@ void debouncePots() {
     }
 
     if (potMoving == true) {                // If the potentiometer is still moving, send the change control
-      if (midiPState[i] != midiCState[i]) {
+      if (midiPglobalState[i] != midiCglobalState[i]) {
         
-        handlePots(i, 127 - midiCState[i]); // sends to handler
+        handlePots(i, 127 - midiCglobalState[i]); // sends to handler
 
-        potPState[i] = potCState[i];        // Stores the current reading of the potentiometer to compare with the next
-        midiPState[i] = midiCState[i];
+        potPglobalState[i] = potCglobalState[i];        // Stores the current reading of the potentiometer to compare with the next
+        midiPglobalState[i] = midiCglobalState[i];
       }
     }
   }
@@ -420,6 +422,7 @@ void handlePots(int pot, int value) {
         case Groups:
           handlePotsWithGroupsOn(pot, value);
           break;
+      }
 
     /*
     if (isEffectsOn) {
