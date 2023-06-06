@@ -18,6 +18,11 @@ public:
   }
 };
 
+//! right now, isEffectsOn and areDrumsOn depend on having all interruptors up at the start of the program
+//? which, obviously, makes it incosnsistent
+//? should be able to eliminate the variables and use only the state of the pins, but I'm to lazy to do it now
+
+
 /*
   MIDI CC
   127 = Tempo (continuo)
@@ -52,6 +57,7 @@ public:
 //! consts to change behaivour
 const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
 const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
+const bool ARE_GROUP_KNOBS_TIED_TO_PAGE_NUMBER = false;
 const bool DO_GROUPS_ON_BUTTONS_SEND_NOTES = true;
 
 
@@ -296,18 +302,23 @@ void handleMainButtonsWithEffectsON(int pin, uint8_t value) {
 // selectedEffectPerColumn[MAX_PAGES * 4] = {0};
 
 void handleMainButtonsWithGroupsOn(int pin, uint8_t value) {
+  int column;
   shortLed();
   pin = pin - 2;
-  int column = pin % 4 /*+ page * 4*/; // unaffected by bage number
+  if (ARE_GROUP_KNOBS_TIED_TO_PAGE_NUMBER) {
+    column = pin % 4 + page * 4;
+  } else {
+    column = pin % 4 /*+ page * 4*/;
+  }
   int n = (pin - pin % 4) / 4;
   selectedGroupPerColumn[column] = n;
 
   if (DO_GROUPS_ON_BUTTONS_SEND_NOTES) {
   // when effect is on, buttons still send notes (in another channel)
     if (value == LOW) {
-      MIDI.sendNoteOn(column * 4 + n, 127, isPageDown+6);
+      MIDI.sendNoteOn(column * 4 + n, 127, isPageDown+5);
     } else {
-      MIDI.sendNoteOn(column * 4 + n, 0, isPageDown+6);
+      MIDI.sendNoteOn(column * 4 + n, 0, isPageDown+5);
     }
   } // else, it doesn't do nothing
 }
@@ -389,14 +400,17 @@ void handlePotsWithEffectsOn(int pot, int value) {
 
 void handlePotsWithGroupsOn(int pot, int value) {
   int column = pot + page * 4;
-  int group = selectedGroupPerColumn[column];
+  int group;
 
-  if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
+
+  if (ARE_GROUP_KNOBS_TIED_TO_PAGE_NUMBER) {
+    group = selectedGroupPerColumn[column];
     // for 4 effect knobs per page
-    MIDI.sendControlChange(column*4 + group, value, 6);
+    MIDI.sendControlChange(column*4 + group, value, 5 + isPageDown);
   } else {
+    group = selectedGroupPerColumn[pot];
     // for 4 effect knobs in general, to assign to all pages
-    MIDI.sendControlChange(pot*4 + group, value, 6);
+    MIDI.sendControlChange(pot*4 + group, value, 5 + isPageDown);
   }
 }
 
