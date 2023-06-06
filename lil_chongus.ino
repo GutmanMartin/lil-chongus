@@ -54,6 +54,14 @@ public:
 
 */
 
+enum globalState {
+  ClipLaunch,
+  ClipEffects,
+  Drums,
+  Groups,
+};
+
+
 //! consts to change behaivour
 const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
 const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
@@ -157,6 +165,23 @@ void loop() {
   }
 }
 
+// EFFECTS_INTERRUPTOR, DRUMS_INTERRUPTOR
+void updateState() {
+  if (digitalRead(EFFECTS_INTERRUPTOR)) {
+    if (digitalRead(DRUMS_INTERRUPTOR)) {
+      globalState = Groups;
+    } else {
+      globalState = ClipEffects;
+    }
+  } else {
+    if (digitalRead(DRUMS_INTERRUPTOR)) {
+      globalState = Drums;
+    } else {
+      globalState = ClipLaunch;
+    }
+  }
+}
+
 
 void debounceButtons() {
   //Serial.println("debounce buttons called");
@@ -201,19 +226,35 @@ void handleButtons(int pin, uint8_t value) {
       }
       break;
     default:
+      switch (globalState) {
+        case Drums:
+          handleMainButtonsWithDrumsOn(pin, value);
+          break;
+        case ClipEffects:
+          handleMainButtonsWithEffectsOn(pin, value);
+          break;
+        case ClipLaunch:
+          handleMainButtonsWithLaunchOn(pin, value);
+          break;
+        case Groups:
+          handleMainButtonsWithGroupsOn(pin, value);
+          break;
+      }
+    /*
       if (isEffectsOn) {
         if (areDrumsOn) {
           handleMainButtonsWithGroupsOn(pin, value);
         } else {
-          handleMainButtonsWithEffectsON(pin, value);
+          handleMainButtonsWithEffectsOn(pin, value);
         }
       } else {
         if (areDrumsOn) {
           handleMainButtonsWithDrums(pin, value);
         } else {
-          handleMainButtonsWithEffectsOFF(pin, value);
+          handleMainButtonsWithLaunchOn(pin, value);
         }
       }
+    */
   }
 
 }
@@ -257,7 +298,7 @@ void handlePedal(uint8_t value) {
 }
 
 
-void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
+void handleMainButtonsWithLaunchOn(int pin, uint8_t value) {
   // some random stuff so that ableton's default keybindings for drums work
   if (value == LOW) {
     MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
@@ -283,7 +324,7 @@ void handleMainButtonsWithDrums(int pin, uint8_t value) {
 }
 
 
-void handleMainButtonsWithEffectsON(int pin, uint8_t value) {
+void handleMainButtonsWithEffectsOn(int pin, uint8_t value) {
   shortLed();
   pin = pin - 2;
   int column = pin % 4 + page * 4;
@@ -358,9 +399,6 @@ void debouncePots() {
 
 void handlePots(int pot, int value) {
   shortLed();
-    //Serial.println(pot);
-    //MIDI.sendControlChange(/*pot + page * NPots - */1, value, isPageDown);
-          // cc number, cc value, midi channel
   if (pot == NPots - 1) {
     /* so this is a mess, but it has to be NPots -1 and not BPM_POT
     because this function is being passed i, instead of potPin[i]
@@ -368,6 +406,22 @@ void handlePots(int pot, int value) {
     because potPin[0] = A0, wich cannot be passed to sendControlChange because A0 isn't an int */ 
     MIDI.sendControlChange(127, value, 1);
   } else {
+
+    switch (globalState) {
+        case Drums:
+          MIDI.sendControlChange(pot, value, 5);
+          break;
+        case ClipEffects:
+          handlePotsWithEffectsOn(pot, value);
+          break;
+        case ClipLaunch:
+          MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
+          break;
+        case Groups:
+          handlePotsWithGroupsOn(pot, value);
+          break;
+
+    /*
     if (isEffectsOn) {
       if (areDrumsOn){
         handlePotsWithGroupsOn(pot, value);
@@ -380,7 +434,7 @@ void handlePots(int pot, int value) {
       } else {
         MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
       }
-    }
+    }*/
   }
 }
 
