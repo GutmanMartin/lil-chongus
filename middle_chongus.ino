@@ -25,12 +25,14 @@ public:
     Capaz hay algo con bpm en midi
 
   red button: channel 16, note 0
-  channel 15 is for the effects
 
   channels 1 y 2: modo loops
     pots van por 1
   channels 3 y 4: modo efectos
     pots van por 3
+  channel 5: drum notes
+
+  channel 6 y 7: group notes
 
   pines:
     botones principales: 2 - 17
@@ -39,6 +41,7 @@ public:
     pageRight: 37
     effects: 35
     bpmmonitor: 33
+    drums: 31
     red one: 59
     pdealcito: A6
 
@@ -49,18 +52,19 @@ public:
 //! consts to change behaivour
 const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
 const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
+const bool DO_GROUPS_ON_BUTTONS_SEND_NOTES = true;
 
 
 // BUTTONS
 
 const int EFFECTS_INTERRUPTOR = 35;
 const int BPM_INTERRUPTOR = 33;
-const int OTHER_LEVER = 31;
+const int DRUMS_INTERRUPTOR = 31;
 const int RED_BUTTON = 59;
 const int PEDAL = A6;
 
 const int NButtons = 16 + 3 + 1 + 1;
-const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, OTHER_LEVER, RED_BUTTON, PEDAL};
+const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, DRUMS_INTERRUPTOR, RED_BUTTON, PEDAL};
 
 int buttonCState[NButtons] = {};  // stores the button current value
 int buttonPState[NButtons] = {};  // stores the button previous value
@@ -93,6 +97,7 @@ bool isEffectsOn = false;
 int selectedEffectPerColumn[MAX_PAGES * 4] = {0};
 bool areDrumsOn = false;
 
+int selectedGroupPerColumn[MAX_PAGES * 4] = {0};
 
 
 // KNOBS
@@ -174,7 +179,7 @@ void handleButtons(int pin, uint8_t value) {
     case PEDAL:
       handlePedal(value);
     break;
-    case OTHER_LEVER:
+    case DRUMS_INTERRUPTOR:
       areDrumsOn = !areDrumsOn;
       if (value == LOW) {
         MIDI.sendControlChange(125, 127, 1);
@@ -191,7 +196,11 @@ void handleButtons(int pin, uint8_t value) {
       break;
     default:
       if (isEffectsOn) {
-        handleMainButtonsWithEffectsON(pin, value);
+        if (areDrumsOn) {
+          handleMainButtonsWithGroupsOn(pin, value);
+        } else {
+          handleMainButtonsWithEffectsON(pin, value);
+        }
       } else {
         if (areDrumsOn) {
           handleMainButtonsWithDrums(pin, value);
@@ -202,6 +211,8 @@ void handleButtons(int pin, uint8_t value) {
   }
 
 }
+
+
 
 
 void handleRedButton(uint8_t value) {
@@ -284,6 +295,27 @@ void handleMainButtonsWithEffectsON(int pin, uint8_t value) {
 }
 // selectedEffectPerColumn[MAX_PAGES * 4] = {0};
 
+void handleMainButtonsWithGroupsOn(int pin, uint8_t value) {
+  shortLed();
+  pin = pin - 2;
+  int column = pin % 4 /*+ page * 4*/; // unaffected by bage number
+  int n = (pin - pin % 4) / 4;
+  selectedGroupPerColumn[column] = n;
+
+  if (DO_GROUPS_ON_BUTTONS_SEND_NOTES) {
+  // when effect is on, buttons still send notes (in another channel)
+    if (value == LOW) {
+      MIDI.sendNoteOn(column * 4 + n, 127, isPageDown+6);
+    } else {
+      MIDI.sendNoteOn(column * 4 + n, 0, isPageDown+6);
+    }
+  } // else, it doesn't do nothing
+}
+
+
+
+
+
 void debouncePots() {
   for (int i = 0; i < NPots; i++) {                      // Loops through all the potentiometers
     potCState[i] = analogRead(potPin[i]);                // reads the pins from arduino
@@ -325,14 +357,18 @@ void handlePots(int pot, int value) {
     because potPin[0] = A0, wich cannot be passed to sendControlChange because A0 isn't an int */ 
     MIDI.sendControlChange(127, value, 1);
   } else {
-    if (isEffectsOn == LOW) {
+    if (isEffectsOn) {
+      if (areDrumsOn){
+        handlePotsWithGroupsOn(pot, value);
+      } else {
+        handlePotsWithEffectsOn(pot, value);
+      }
+    } else {
       if (areDrumsOn) {
         MIDI.sendControlChange(pot, value, 5);
       } else {
         MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
       }
-    } else {
-      handlePotsWithEffectsOn(pot, value);
     }
   }
 }
@@ -351,10 +387,18 @@ void handlePotsWithEffectsOn(int pot, int value) {
   }
 }
 
+void handlePotsWithGroupsOn(int pot, int value) {
+  int column = pot + page * 4;
+  int group = selectedGroupPerColumn[column];
 
-
-
-// selectedEffectPerColumn[MAX_PAGES * 4] = {0};
+  if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
+    // for 4 effect knobs per page
+    MIDI.sendControlChange(column*4 + group, value, 6);
+  } else {
+    // for 4 effect knobs in general, to assign to all pages
+    MIDI.sendControlChange(pot*4 + group, value, 6);
+  }
+}
 
 
 void pages() {
