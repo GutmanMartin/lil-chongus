@@ -80,6 +80,7 @@ const int PEDAL = A6;
 
 const int NButtons = 16 + 3 + 1 + 1;
 const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, DRUMS_INTERRUPTOR, RED_BUTTON, PEDAL};
+  // si bien EFFECTS_INTERRUPTOR y DRUMS_INTERRUPTOR no son utilizados para nada acá, si los sacás el programa anda mal
 
 int buttonCurrentState[NButtons] = {};  // stores the button current value
 int buttonPreviousState[NButtons] = {};  // stores the button previous value
@@ -167,7 +168,6 @@ void loop() {
   }
 }
 
-// EFFECTS_INTERRUPTOR, DRUMS_INTERRUPTOR
 void updateglobalState() {
   if (digitalRead(EFFECTS_INTERRUPTOR)) {
     if (digitalRead(DRUMS_INTERRUPTOR)) {
@@ -204,23 +204,16 @@ void debounceButtons() {
 
 void handleButtons(int pin, uint8_t value) {
   switch (pin) {
-    case EFFECTS_INTERRUPTOR:
-      isEffectsOn = !isEffectsOn;
-    break;
+    case EFFECTS_INTERRUPTOR: // sacar esto hace que el programa se rompa
+      break;
+    case DRUMS_INTERRUPTOR:   // sacar esto hace que el programa se rompa
+      break;
     case RED_BUTTON:
       handleRedButton(value);
     break;
     case PEDAL:
       handlePedal(value);
     break;
-    case DRUMS_INTERRUPTOR:
-      areDrumsOn = !areDrumsOn;
-      if (value == LOW) {
-        MIDI.sendControlChange(125, 127, 1);
-      } else {
-        MIDI.sendControlChange(125, 0, 1);
-      }
-      break;
     case BPM_INTERRUPTOR:
       if (value == LOW) {
         MIDI.sendControlChange(126, 127, 1);
@@ -269,7 +262,7 @@ void handleRedButton(uint8_t value) {
 }
 
 void handlePedal(uint8_t value) {
-  if (areDrumsOn){
+  if (globalState == Drums){
     if (value == LOW) {
       MIDI.sendNoteOn(1, 127, 16);
     } else {
