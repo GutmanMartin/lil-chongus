@@ -286,8 +286,14 @@ void handleMainButtonsWithDrums(int pin, uint8_t value) {
 void handleMainButtonsWithEffectsON(int pin, uint8_t value) {
   shortLed();
   pin = pin - 2;
-  int column = pin % 4 + page * 4;
-  int n = (pin - pin % 4) / 4;
+  int column;
+  if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
+    column = pin % 4 + page * 4;
+  } else {
+    column = pin % 4;
+  }
+  
+  int n = (pin - pin % 4) / 4 + isPageDown*4;
   selectedEffectPerColumn[column] = n;
 
   if (DO_EFFECTS_ON_BUTTONS_SEND_NOTES) {
@@ -386,7 +392,7 @@ void handlePots(int pot, int value) {
 
 
 void handlePotsWithEffectsOn(int pot, int value) {
-  int column = pot + page * 4;
+  int column = pot + page * 4 ;
   int effect = selectedEffectPerColumn[column];
 
   if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
@@ -394,7 +400,7 @@ void handlePotsWithEffectsOn(int pot, int value) {
     MIDI.sendControlChange(column*4 + effect, value, 3);
   } else {
     // for 4 effect knobs in general, to assign to all pages
-    MIDI.sendControlChange(pot*4 + effect, value, 3);               
+    MIDI.sendControlChange(pot*8 + effect, value, 3);               
   }
 }
 
