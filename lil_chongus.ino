@@ -5,22 +5,22 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 class Button {
 private:
   uint8_t btn;
-  uint16_t state;
+  uint16_t globalState;
 public:
   void begin(uint8_t button) {
     btn = button;
-    state = 0;
+    globalState = 0;
     pinMode(btn, INPUT_PULLUP);
   }
   bool debounce() {
-    state = (state << 1) | digitalRead(btn) | 0xfe00;
-    return (state == 0xff00);
+    globalState = (globalState << 1) | digitalRead(btn) | 0xfe00;
+    return (globalState == 0xff00);
   }
 };
 
 //! right now, isEffectsOn and areDrumsOn depend on having all interruptors up at the start of the program
 //? which, obviously, makes it incosnsistent
-//? should be able to eliminate the variables and use only the state of the pins, but I'm to lazy to do it now
+//? should be able to eliminate the variables and use only the globalState of the pins, but I'm to lazy to do it now
 
 
 /*
@@ -54,6 +54,15 @@ public:
 
 */
 
+enum GlobalState {
+  ClipLaunch,
+  ClipEffects,
+  Drums,
+  Groups,
+};
+
+GlobalState globalState;
+
 //! consts to change behaivour
 const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
 const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
@@ -71,9 +80,10 @@ const int PEDAL = A6;
 
 const int NButtons = 16 + 3 + 1 + 1;
 const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, DRUMS_INTERRUPTOR, RED_BUTTON, PEDAL};
+  // si bien EFFECTS_INTERRUPTOR y DRUMS_INTERRUPTOR no son utilizados para nada acá, si los sacás el programa anda mal
 
-int buttonCState[NButtons] = {};  // stores the button current value
-int buttonPState[NButtons] = {};  // stores the button previous value
+int buttonCurrentState[NButtons] = {};  // stores the button current value
+int buttonPreviousState[NButtons] = {};  // stores the button previous value
 
 int redButtonNote = 0;
 int redButtonChannel = 1;
@@ -113,12 +123,12 @@ const int NPots = 5;                               //*** total numbers of pots (
 const int potPin[NPots] = {A0, A1, A2, A3, BPM_POT};  //*** Analog pins of each pot connected straight to the Arduino i.e 4 pots, {A3, A2, A1, A0};
                                                    // have nothing in the array if 0 pots {}
 
-int potCState[NPots] = { 0 };  // Current state of the pot; delete 0 if 0 pots
-int potPState[NPots] = { 0 };  // Previous state of the pot; delete 0 if 0 pots
-int potVar = 0;                // Difference between the current and previous state of the pot
+int potCurrentState[NPots] = { 0 };  // Current globalState of the pot; delete 0 if 0 pots
+int potPglobalState[NPots] = { 0 };  // Previous globalState of the pot; delete 0 if 0 pots
+int potVar = 0;                // Difference between the current and previous globalState of the pot
 
-int midiCState[NPots] = { 0 }; // Current state of the midi value; delete 0 if 0 pots
-int midiPState[NPots] = { 0 }; // Previous state of the midi value; delete 0 if 0 pots
+int midiCurrentState[NPots] = { 0 }; // Current globalState of the midi value; delete 0 if 0 pots
+int midiPreviousSatate[NPots] = { 0 }; // Previous globalState of the midi value; delete 0 if 0 pots
 
 const int TIMEOUT = 300;             //** Amount of time the potentiometer will be read after it exceeds the varThreshold
 const int varThreshold = 10;         //** Threshold for the potentiometer signal variation
@@ -147,6 +157,7 @@ void setup() {
 }
 
 void loop() {
+  updateglobalState();
   debouncePots();
   debounceButtons();
   pages();
@@ -157,17 +168,34 @@ void loop() {
   }
 }
 
+void updateglobalState() {
+  if (digitalRead(EFFECTS_INTERRUPTOR)) {
+    if (digitalRead(DRUMS_INTERRUPTOR)) {
+
+      globalState = Groups;
+    } else {
+      globalState = ClipEffects;
+    }
+  } else {
+    if (digitalRead(DRUMS_INTERRUPTOR)) {
+      globalState = Drums;
+    } else {
+      globalState = ClipLaunch;
+    }
+  }
+}
+
 
 void debounceButtons() {
   //Serial.println("debounce buttons called");
   for (int i = 0; i < NButtons; i++) {
-    buttonCState[i] = digitalRead(buttonPin[i]);  // read pins from arduino
+    buttonCurrentState[i] = digitalRead(buttonPin[i]);  // read pins from arduino
     if ((millis() - lastDebounceTime[i]) > debounceDelay) {
-      if (buttonPState[i] != buttonCState[i]) {
+      if (buttonPreviousState[i] != buttonCurrentState[i]) {
         lastDebounceTime[i] = millis();
 
-        handleButtons(buttonPin[i], buttonCState[i]);
-        buttonPState[i] = buttonCState[i];
+        handleButtons(buttonPin[i], buttonCurrentState[i]);
+        buttonPreviousState[i] = buttonCurrentState[i];
       }
     }
   }
@@ -176,23 +204,16 @@ void debounceButtons() {
 
 void handleButtons(int pin, uint8_t value) {
   switch (pin) {
-    case EFFECTS_INTERRUPTOR:
-      isEffectsOn = !isEffectsOn;
-    break;
+    case EFFECTS_INTERRUPTOR: // sacar esto hace que el programa se rompa
+      break;
+    case DRUMS_INTERRUPTOR:   // sacar esto hace que el programa se rompa
+      break;
     case RED_BUTTON:
       handleRedButton(value);
     break;
     case PEDAL:
       handlePedal(value);
     break;
-    case DRUMS_INTERRUPTOR:
-      areDrumsOn = !areDrumsOn;
-      if (value == LOW) {
-        MIDI.sendControlChange(125, 127, 1);
-      } else {
-        MIDI.sendControlChange(125, 0, 1);
-      }
-      break;
     case BPM_INTERRUPTOR:
       if (value == LOW) {
         MIDI.sendControlChange(126, 127, 1);
@@ -201,21 +222,22 @@ void handleButtons(int pin, uint8_t value) {
       }
       break;
     default:
-      if (isEffectsOn) {
-        if (areDrumsOn) {
+    
+      switch (globalState) {
+        case Drums:
+          handleMainButtonsWithDrumsOn(pin, value);
+          break;
+        case ClipEffects:
+          handleMainButtonsWithEffectsOn(pin, value);
+          break;
+        case ClipLaunch:
+          handleMainButtonsWithLaunchOn(pin, value);
+          break;
+        case Groups:
           handleMainButtonsWithGroupsOn(pin, value);
-        } else {
-          handleMainButtonsWithEffectsON(pin, value);
-        }
-      } else {
-        if (areDrumsOn) {
-          handleMainButtonsWithDrums(pin, value);
-        } else {
-          handleMainButtonsWithEffectsOFF(pin, value);
-        }
+          break;
       }
   }
-
 }
 
 
@@ -240,7 +262,7 @@ void handleRedButton(uint8_t value) {
 }
 
 void handlePedal(uint8_t value) {
-  if (areDrumsOn){
+  if (globalState == Drums){
     if (value == LOW) {
       MIDI.sendNoteOn(1, 127, 16);
     } else {
@@ -257,7 +279,7 @@ void handlePedal(uint8_t value) {
 }
 
 
-void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
+void handleMainButtonsWithLaunchOn(int pin, uint8_t value) {
   // some random stuff so that ableton's default keybindings for drums work
   if (value == LOW) {
     MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
@@ -272,7 +294,7 @@ void handleMainButtonsWithEffectsOFF(int pin, uint8_t value) {
   }
 }
 
-void handleMainButtonsWithDrums(int pin, uint8_t value) {
+void handleMainButtonsWithDrumsOn(int pin, uint8_t value) {
   if (value == LOW) {
     MIDI.sendNoteOn(pin - 2 + 36, 127, 5);
     // note, velocity, channel
@@ -283,7 +305,7 @@ void handleMainButtonsWithDrums(int pin, uint8_t value) {
 }
 
 
-void handleMainButtonsWithEffectsON(int pin, uint8_t value) {
+void handleMainButtonsWithEffectsOn(int pin, uint8_t value) {
   shortLed();
   pin = pin - 2;
   int column;
@@ -335,9 +357,9 @@ void handleMainButtonsWithGroupsOn(int pin, uint8_t value) {
 
 void debouncePots() {
   for (int i = 0; i < NPots; i++) {                      // Loops through all the potentiometers
-    potCState[i] = analogRead(potPin[i]);                // reads the pins from arduino
-    midiCState[i] = map(potCState[i], 0, 1023, 0, 127);  // Maps the reading of the potCState to a value usable in midi
-    potVar = abs(potCState[i] - potPState[i]);           // Calculates the absolute value between the difference between the current and previous state of the pot
+    potCurrentState[i] = analogRead(potPin[i]);                // reads the pins from arduino
+    midiCurrentState[i] = map(potCurrentState[i], 0, 1023, 0, 127);  // Maps the reading of the potCurrentState to a value usable in midi
+    potVar = abs(potCurrentState[i] - potPglobalState[i]);           // Calculates the absolute value between the difference between the current and previous state of the pot
     if (potVar > varThreshold) {                         // Opens the gate if the potentiometer variation is greater than the threshold
       PTime[i] = millis();                               // Stores the previous time
     }
@@ -350,12 +372,12 @@ void debouncePots() {
     }
 
     if (potMoving == true) {                // If the potentiometer is still moving, send the change control
-      if (midiPState[i] != midiCState[i]) {
+      if (midiPreviousSatate[i] != midiCurrentState[i]) {
         
-        handlePots(i, 127 - midiCState[i]); // sends to handler
+        handlePots(i, 127 - midiCurrentState[i]); // sends to handler
 
-        potPState[i] = potCState[i];        // Stores the current reading of the potentiometer to compare with the next
-        midiPState[i] = midiCState[i];
+        potPglobalState[i] = potCurrentState[i];        // Stores the current reading of the potentiometer to compare with the next
+        midiPreviousSatate[i] = midiCurrentState[i];
       }
     }
   }
@@ -364,9 +386,6 @@ void debouncePots() {
 
 void handlePots(int pot, int value) {
   shortLed();
-    //Serial.println(pot);
-    //MIDI.sendControlChange(/*pot + page * NPots - */1, value, isPageDown);
-          // cc number, cc value, midi channel
   if (pot == NPots - 1) {
     /* so this is a mess, but it has to be NPots -1 and not BPM_POT
     because this function is being passed i, instead of potPin[i]
@@ -374,18 +393,20 @@ void handlePots(int pot, int value) {
     because potPin[0] = A0, wich cannot be passed to sendControlChange because A0 isn't an int */ 
     MIDI.sendControlChange(127, value, 1);
   } else {
-    if (isEffectsOn) {
-      if (areDrumsOn){
-        handlePotsWithGroupsOn(pot, value);
-      } else {
-        handlePotsWithEffectsOn(pot, value);
-      }
-    } else {
-      if (areDrumsOn) {
-        MIDI.sendControlChange(pot, value, 5);
-      } else {
-        MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
-      }
+
+    switch (globalState) {
+        case Drums:
+          MIDI.sendControlChange(pot, value, 5);
+          break;
+        case ClipEffects:
+          handlePotsWithEffectsOn(pot, value);
+          break;
+        case ClipLaunch:
+          MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
+          break;
+        case Groups:
+          handlePotsWithGroupsOn(pot, value);
+          break;
     }
   }
 }
