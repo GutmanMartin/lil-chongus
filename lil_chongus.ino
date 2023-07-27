@@ -18,9 +18,6 @@ public:
   }
 };
 
-//! right now, isEffectsOn and areDrumsOn depend on having all interruptors up at the start of the program
-//? which, obviously, makes it incosnsistent
-//? should be able to eliminate the variables and use only the globalState of the pins, but I'm to lazy to do it now
 
 
 /*
@@ -63,6 +60,8 @@ enum GlobalState {
 
 GlobalState globalState;
 
+bool moreStuff;
+
 //! consts to change behaivour
 const bool DO_EFFECTS_ON_BUTTONS_SEND_NOTES = false;
 const bool ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER = false;
@@ -73,13 +72,13 @@ const bool DO_GROUPS_ON_BUTTONS_SEND_NOTES = true;
 // BUTTONS
 
 const int EFFECTS_INTERRUPTOR = 35;
-const int BPM_INTERRUPTOR = 33;
+const int MORE_STUFF_INTERRUPTOR = 33;
 const int DRUMS_INTERRUPTOR = 31;
 const int RED_BUTTON = 59;
 const int PEDAL = A6;
 
 const int NButtons = 16 + 3 + 1 + 1;
-const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, BPM_INTERRUPTOR, DRUMS_INTERRUPTOR, RED_BUTTON, PEDAL};
+const int buttonPin[NButtons] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, EFFECTS_INTERRUPTOR, MORE_STUFF_INTERRUPTOR, DRUMS_INTERRUPTOR, RED_BUTTON, PEDAL};
   // si bien EFFECTS_INTERRUPTOR y DRUMS_INTERRUPTOR no son utilizados para nada acá, si los sacás el programa anda mal
 
 int buttonCurrentState[NButtons] = {};  // stores the button current value
@@ -168,6 +167,8 @@ void loop() {
   }
 }
 
+
+
 void updateglobalState() {
   if (digitalRead(EFFECTS_INTERRUPTOR)) {
     if (digitalRead(DRUMS_INTERRUPTOR)) {
@@ -182,6 +183,13 @@ void updateglobalState() {
     } else {
       globalState = ClipLaunch;
     }
+  }
+
+  if (digitalRead(MORE_STUFF_INTERRUPTOR)) {
+    moreStuff = true;
+  } else {
+    moreStuff = false;
+
   }
 }
 
@@ -208,19 +216,14 @@ void handleButtons(int pin, uint8_t value) {
       break;
     case DRUMS_INTERRUPTOR:   // sacar esto hace que el programa se rompa
       break;
+    case MORE_STUFF_INTERRUPTOR:// sacar esto hace que el programa se rompa
+    break;
     case RED_BUTTON:
       handleRedButton(value);
     break;
     case PEDAL:
       handlePedal(value);
     break;
-    case BPM_INTERRUPTOR:
-      if (value == LOW) {
-        MIDI.sendControlChange(126, 127, 1);
-      } else {
-        MIDI.sendControlChange(126, 0, 1);
-      }
-      break;
     default:
     
       switch (globalState) {
@@ -415,13 +418,22 @@ void handlePots(int pot, int value) {
 void handlePotsWithEffectsOn(int pot, int value) {
   int column = pot + page * 4 ;
   int effect = selectedEffectPerColumn[column];
-
-  if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
-    // for 4 effect knobs per page
-    MIDI.sendControlChange(column*4 + effect, value, 3);
+  if (moreStuff) {
+    if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
+      // for 4 effect knobs per page
+      MIDI.sendControlChange(column*4 + effect, value, 4);
+    } else {
+      // for 4 effect knobs in general, to assign to all pages
+      MIDI.sendControlChange(pot*8 + effect, value, 4);               
+    }
   } else {
-    // for 4 effect knobs in general, to assign to all pages
-    MIDI.sendControlChange(pot*8 + effect, value, 3);               
+    if (ARE_EFFECT_KNOBS_TIED_TO_PAGE_NUMBER) {
+      // for 4 effect knobs per page
+      MIDI.sendControlChange(column*4 + effect, value, 3);
+    } else {
+      // for 4 effect knobs in general, to assign to all pages
+      MIDI.sendControlChange(pot*8 + effect, value, 3);               
+    }
   }
 }
 
