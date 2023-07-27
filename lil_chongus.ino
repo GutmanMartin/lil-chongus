@@ -31,7 +31,7 @@ public:
   channels 1 y 2: modo loops
     pots van por 1
   channels 3 y 4: modo efectos
-    pots van por 3
+    pots van por 3, y por 4 cuando hay MORE_STUFF
   channel 5: drum notes
 
   channel 6 y 7: group notes
