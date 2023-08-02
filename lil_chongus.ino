@@ -394,7 +394,7 @@ void handlePots(int pot, int value) {
     because this function is being passed i, instead of potPin[i]
     (the array which holds the analog pin directions),
     because potPin[0] = A0, wich cannot be passed to sendControlChange because A0 isn't an int */ 
-    MIDI.sendControlChange(127, value, 1);
+    handleExtraPot(pot, value);
   } else {
 
     switch (globalState) {
@@ -414,6 +414,27 @@ void handlePots(int pot, int value) {
   }
 }
 
+
+void handleExtraPot(int pot, int value) {
+  switch (globalState) {
+        case Drums:
+          MIDI.sendControlChange(127, value, 5);
+          break;
+        case ClipEffects:
+          if (moreStuff) {
+            MIDI.sendControlChange(127, value, 4);
+          } else {
+            MIDI.sendControlChange(127, value, 3);
+          }
+          break;
+        case ClipLaunch:
+          MIDI.sendControlChange(127, value, 1);
+          break;
+        case Groups:
+          MIDI.sendControlChange(127, value, 6);
+          break;
+    }
+}
 
 void handlePotsWithEffectsOn(int pot, int value) {
   int column = pot + page * 4 ;
