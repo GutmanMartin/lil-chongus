@@ -284,16 +284,22 @@ void handlePedal(uint8_t value) {
 
 void handleMainButtonsWithLaunchOn(int pin, uint8_t value) {
   // some random stuff so that ableton's default keybindings for drums work
+  int channel;
+  if (!moreStuff) {
+    channel = 1;
+  } else {
+    channel = 2;
+  }
   if (value == LOW) {
-    MIDI.sendNoteOn(pin - 2 + page * 16, 127, isPageDown);
-    redButtonChannel = isPageDown;
+    MIDI.sendNoteOn(pin - 2 + page * 16, 127, channel);
+    redButtonChannel = channel;
     isRedButtonActive = true;
     redButtonNote = pin - 2 + page * 16;
 
     // note, velocity, channel
     shortLed();
   } else {
-    MIDI.sendNoteOn(pin - 2 + page * 16, 0, isPageDown);
+    MIDI.sendNoteOn(pin - 2 + page * 16, 0, channel);
   }
 }
 
@@ -405,7 +411,7 @@ void handlePots(int pot, int value) {
           handlePotsWithEffectsOn(pot, value);
           break;
         case ClipLaunch:
-          MIDI.sendControlChange(pot + page * (NPots-1), value, isPageDown);
+          handlePotsWithLaunchOn(pot, value);
           break;
         case Groups:
           handlePotsWithGroupsOn(pot, value);
@@ -413,6 +419,17 @@ void handlePots(int pot, int value) {
     }
   }
 }
+
+void handlePotsWithLaunchOn(int pot, int value) {
+  int channel;
+  if (!moreStuff) {
+    channel = 1;
+  } else {
+    channel = 2;
+  }
+  MIDI.sendControlChange(pot + page * (NPots-1), value, channel);
+}
+
 
 
 void handleExtraPot(int pot, int value) {
