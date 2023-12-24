@@ -157,6 +157,7 @@ void setup() {
 
 void loop() {
   updateglobalState();
+  readFromNovation();
   debouncePots();
   debounceButtons();
   pages();
@@ -164,6 +165,16 @@ void loop() {
   if (ledDelay < millis()) {
     // turns down the led
     digitalWrite(LED, LOW);
+  }
+}
+
+void readFromNovation() {
+   if (MIDI.read()) {
+    if (MIDI.getType() == midi::NoteOn) {
+      int note = MIDI.getData1();  // Get the MIDI note number
+      redButtonNote = note;
+
+    }
   }
 }
 
